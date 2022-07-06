@@ -1,9 +1,9 @@
 ﻿@using Syncfusion.Blazor.Buttons;
 
-<SfButton CssClass="@(IsOpen ? "collapsible active" : "collapsible")" OnClick="@(e => IsOpen = !IsOpen)">
+<SfButton CssClass="@(panelOpen ? "collapsible active" : "collapsible")" OnClick="@(e => panelOpen = !panelOpen)">
     <ChildContent>@Header</ChildContent>
 </SfButton>
-@if (IsOpen)
+@if (panelOpen)
 {
     <div class="@(BodyCssClass)">
         @Body
@@ -64,6 +64,9 @@ else
     public string BodyCssClass { get; set; } = "";
     [Parameter]
     public bool IsOpen { get; set; } = true;
+
+    public bool panelOpen { get; set; } = true;
+
     public Error? Error { get; set; }
     public List<string> Errors { get; set; } = new();
 
@@ -71,8 +74,8 @@ else
     {
         try
         {
-            var x = IsOpen;
-            var header = Header;
+            panelOpen = IsOpen;
+
         } catch (Exception ex)
         {
             Error?.ProcessError(ex);
