@@ -4,6 +4,8 @@
 @using Syncfusion.Blazor.Inputs;
 @using System.ComponentModel.DataAnnotations;
 @using System.Reflection;
+@using System.Collections;
+@using DynamicExpresso;
 
 <EditForm OnValidSubmit="Submit" EditContext="@editContext" style="width:600px;">
     <ObjectGraphDataAnnotationsValidator />
@@ -105,16 +107,18 @@
          </Header>
         <Body>
         <div class="form-group row">
-            <label for="name" class="col-md-2 col-form-label">Drinking Age:</label>
+            <label for="name" class="col-md-2 col-form-label">Driving Age:</label>
             <div class="col-md-10">
-                <InputCheckbox id="drinkingAge"  @bind-Value="person.AgeRestrictions.DrinkingAge" />
-                <ValidationMessage For="@(() => person.AgeRestrictions.DrinkingAge)" />
+                <InputCheckbox id="drinkingAge"  @bind-Value="person.AgeRestrictions.DrivingAge" />
+                @*<InputText id="drinkingAge" class="form-control"  @bind-Value="person.AgeRestrictions.DrivingAge" />*@
+                <ValidationMessage For="@(() => person.AgeRestrictions.DrivingAge)" />
             </div>
         </div>
         <div class="form-group row">
             <label for="name" class="col-md-2 col-form-label">Voting Age:</label>
             <div class="col-md-10">
                 <InputCheckbox id="name" @bind-Value="person.AgeRestrictions.VotingAge" />
+                @*<InputText id="name" class="form-control"  @bind-Value="person.AgeRestrictions.VotingAge" />*@
                 <ValidationMessage For="@(() => person.AgeRestrictions.VotingAge)" />
             </div>
         </div>
@@ -124,6 +128,7 @@
         <div class="col-md-12 text-right">
             <button type="submit" class="btn btn-success">Submit</button>
             <button type="button" onclick="@(() => ValidateSection("Name"))" class="btn btn-success">Validate Section Name</button>
+            <button type="button" onclick="@(() => ExecuteRules())" class="btn btn-success">Execute Rules</button>
         </div>
     </div>
 </EditForm>
@@ -131,7 +136,7 @@
 @code {
     private EditContext editContext;
 
-    private Person person = new Person
+    public Person person { get; set; } = new Person()
         {
             Id = Guid.NewGuid(),
             Name = new PersonName(),
@@ -140,10 +145,20 @@
             AddressDetails = new AddressDetails(),
             AgeRestrictions = new AgeRestrictions()
         };
+
+    public int age = 0;
     protected override void OnInitialized()
     {
         editContext = new EditContext(person);
         editContext.OnFieldChanged += EditContext_OnFieldChanged;
+
+        person.Age.Rules.Add(new Rule { Test = "person.Age.Age >= 18", UpdateMethod = "person.AgeRestrictions.VotingAge = true" });
+        person.Age.Rules.Add(new Rule { Test = "person.Age.Age < 18", UpdateMethod  = "person.AgeRestrictions.VotingAge = false" });
+        person.Age.Rules.Add(new Rule { Test = "person.Age.Age >= 16", UpdateMethod = "person.AgeRestrictions.DrivingAge = true" });
+        person.Age.Rules.Add(new Rule { Test = "person.Age.Age < 16", UpdateMethod = "person.AgeRestrictions.DrivingAge = false" });
+
+        //person.Age.Rules.Add(new Rule { Name = "Voting Age", Test = "person.AgeRestrictions.VotingAge = (person.Age.Age >= 18)" });
+        //person.Age.Rules.Add(new Rule { Name = "Driving Age", Test = "person.AgeRestrictions.DrivingAge = (person.Age.Age >= 16)" });
 
         base.OnInitialized();
     }
@@ -172,7 +187,7 @@
         }
         Console.WriteLine($"Field Name: {e.FieldIdentifier.FieldName}");
     }
-    
+
     private void ValidateSection(string sectionName)
     {
         editContext.EnableDataAnnotationsValidation();
@@ -194,7 +209,7 @@
 
                     var validationMessages = editContext.GetValidationMessages(fieldIdentifier).Any();
                     Console.WriteLine($"{fieldIdentifier.FieldName} has errors? {validationMessages}");
-                    
+
                     //foreach (var validationMessage in validationMessages)
                     //{
                     //    Console.WriteLine(validationMessage);
@@ -203,6 +218,46 @@
                 }
             }
             //editContext.MarkAsUnmodified();
+        }
+    }
+
+    private void ExecuteRules()
+    {
+        foreach (PropertyInfo prop in person.GetType().GetProperties())
+        {
+            if (prop.PropertyType.IsClass 
+                && prop.PropertyType.Assembly.FullName == person.GetType().Assembly.FullName) {
+                var subClass = person.GetType().GetProperty(prop.Name).GetValue(person);
+                List<Rule> Rules = subClass.GetType().GetProperty("Rules").GetValue(subClass) as List<Rule>;
+
+                if (Rules is not null)
+                {
+                    foreach (var rule in Rules)
+                    {
+                        Console.WriteLine($"Test:\t{rule.Test}\nUpdateMethod\t{rule.UpdateMethod}\n");
+                        Console.WriteLine($"person.Age.Age:\t{person.Age.Age}\nperson.AgeRestrictions.DrivingAge\t{person.AgeRestrictions.DrivingAge}\nperson.AgeRestrictions.VotingAge:\t{person.AgeRestrictions.VotingAge}");
+                        //var interpreter = new Interpreter();
+                        var interpreter = new Interpreter().SetVariable("person", person);
+                        bool result = interpreter.Eval<bool>(rule.Test);
+                        //var result = interpreter.Eval(rule.Test);
+                        if (result && rule.UpdateMethod is not null)
+                        {
+                            interpreter.Eval(rule.UpdateMethod);
+                        }
+                        StateHasChanged();
+                        
+                    }
+                    //var p = person;
+                }
+                
+            }
+
+            //foreach (PropertyInfo sectionProp in subClass.GetType().GetProperties(System.Reflection.BindingFlags.Public
+            //                                                                    | System.Reflection.BindingFlags.Instance
+            //                                                                    | System.Reflection.BindingFlags.DeclaredOnly))
+            //{
+            //    Console.WriteLine($"sub property name: {sectionProp.Name}");
+            //}
         }
     }
 }

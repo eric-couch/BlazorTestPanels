@@ -3,6 +3,14 @@
     public class AgeRestrictions : Fieldset
     {
         public bool VotingAge { get; set; }
-        public bool DrinkingAge { get; set; }
+        public bool DrivingAge { get; set; }
+        public void ToggleVotingAge()
+        {
+            VotingAge = !VotingAge;
+        }
+        public void ToggleDrivingAge()
+        {
+            DrivingAge = !DrivingAge;
+        }
     }
 }
